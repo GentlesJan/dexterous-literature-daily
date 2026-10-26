@@ -2,6 +2,10 @@ name: Dexterous hand literature digest
 on:
   workflow_dispatch:
     inputs:
+      target_date:
+        description: Optional exact Beijing submission date (YYYY-MM-DD)
+        type: string
+        default: ""
       seed_only:
         description: Deploy saved reports without new model calls
         type: boolean
@@ -48,7 +52,14 @@ jobs:
         id: generate
         if: ${{ !inputs.seed_only }}
         continue-on-error: true
-        run: uv run run_robotics.py executor.state_file=site/sent.json
+        env:
+          TARGET_DATE: ${{ inputs.target_date }}
+        run: |
+          if [ -n "$TARGET_DATE" ]; then
+            uv run python scripts/run_date.py --date "$TARGET_DATE"
+          else
+            uv run run_robotics.py executor.state_file=site/sent.json
+          fi
       - name: Build website
         env:
           SEED_ONLY: ${{ inputs.seed_only }}
