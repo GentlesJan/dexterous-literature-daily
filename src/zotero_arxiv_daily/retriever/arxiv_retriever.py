@@ -224,7 +224,19 @@ class ArxivRetriever(BaseRetriever):
         delay_time = 5
         feed = None
         for attempt in range(retry_num):
-            feed = feedparser.parse(rss_url)
+            if self.retriever_config.get('metadata_only', False):
+                # feedparser's URL fetching has no per-request timeout.
+                try:
+                    response = requests.get(rss_url, timeout=DOWNLOAD_TIMEOUT)
+                    response.raise_for_status()
+                    feed = feedparser.parse(response.content)
+                except requests.RequestException:
+                    if attempt == retry_num - 1:
+                        raise
+                    sleep(delay_time)
+                    continue
+            else:
+                feed = feedparser.parse(rss_url)
             status = getattr(feed, "status", None)
             bozo = getattr(feed, "bozo", False)
             bozo_exc = getattr(feed, "bozo_exception", None)
@@ -282,11 +294,13 @@ class ArxivRetriever(BaseRetriever):
         authors = [a.name for a in raw_paper.authors]
         abstract = raw_paper.summary
         pdf_url = raw_paper.pdf_url
-        full_text = extract_text_from_tar(raw_paper)
-        if full_text is None:
-            full_text = extract_text_from_html(raw_paper)
-        if full_text is None:
-            full_text = extract_text_from_pdf(raw_paper)
+        full_text = None
+        if not self.retriever_config.get("metadata_only", False):
+            full_text = extract_text_from_tar(raw_paper)
+            if full_text is None:
+                full_text = extract_text_from_html(raw_paper)
+            if full_text is None:
+                full_text = extract_text_from_pdf(raw_paper)
         return Paper(
             source=self.name,
             title=title,
@@ -295,6 +309,7 @@ class ArxivRetriever(BaseRetriever):
             url=raw_paper.entry_id,
             pdf_url=pdf_url,
             full_text=full_text,
+            published=raw_paper.published.isoformat() if raw_paper.published else None,
         )
 
 

@@ -3,9 +3,13 @@ import re
 import glob
 import math
 import smtplib
+import ssl
+import base64
 from collections import Counter
 from email.header import Header
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
 from email.utils import parseaddr, formataddr
 from loguru import logger
 import datetime
@@ -149,11 +153,44 @@ def send_email(config:DictConfig, html:str):
         name, addr = parseaddr(s)
         return formataddr((Header(name, 'utf-8').encode(), addr))
 
-    msg = MIMEText(html, 'html', 'utf-8')
+    images = []
+    def inline_image(match):
+        content_id = f'paper-figure-{len(images)}@digest'
+        images.append((content_id, base64.b64decode(match.group(1), validate=True)))
+        return f'src="cid:{content_id}"'
+    html = re.sub(r'src="data:image/png;base64,([A-Za-z0-9+/=]+)"', inline_image, html)
+    if images:
+        msg = MIMEMultipart('related')
+        msg.attach(MIMEText(html, 'html', 'utf-8'))
+        for content_id, data in images:
+            image = MIMEImage(data, _subtype='png')
+            image.add_header('Content-ID', f'<{content_id}>')
+            image.add_header('Content-Disposition', 'inline', filename=content_id.split('@')[0] + '.png')
+            msg.attach(image)
+    else:
+        msg = MIMEText(html, 'html', 'utf-8')
     msg['From'] = _format_addr('Github Action <%s>' % sender)
     msg['To'] = _format_addr('You <%s>' % receiver)
     today = datetime.datetime.now().strftime('%Y/%m/%d')
     msg['Subject'] = Header(f'Daily arXiv {today}', 'utf-8').encode()
+
+    security = config.email.get('security')
+    if security is not None:
+        if security not in {'ssl', 'starttls'}:
+            raise ValueError('email.security must be ssl or starttls')
+        context = ssl.create_default_context()
+        server = (smtplib.SMTP_SSL(smtp_server, int(smtp_port), timeout=60, context=context)
+                  if security == 'ssl' else smtplib.SMTP(smtp_server, int(smtp_port), timeout=60))
+        try:
+            if security == 'starttls':
+                server.starttls(context=context)
+            server.login(sender, password, initial_response_ok=False)
+            refused = server.sendmail(sender, [receiver], msg.as_string())
+            if refused:
+                raise smtplib.SMTPRecipientsRefused(refused)
+        finally:
+            server.quit()
+        return
 
     try:
         server = smtplib.SMTP(smtp_server, smtp_port)

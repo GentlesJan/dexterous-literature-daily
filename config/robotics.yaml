@@ -1,0 +1,66 @@
+# Personal workflow. No credentials or personal email addresses in this file.
+defaults:
+  - base
+  - _self_
+
+zotero:
+  enabled: ${oc.decode:${oc.env:ZOTERO_ENABLED,false}}
+  user_id: ${oc.env:ZOTERO_ID,""}
+  api_key: ${oc.env:ZOTERO_KEY,""}
+  include_path: null
+
+research:
+  profile: >-
+    Robotic dexterous hands for grasping and manipulation, multi-fingered grasp
+    synthesis, in-hand manipulation, tactile feedback, reinforcement learning,
+    imitation learning, sim-to-real transfer and real robot evaluations.
+  keywords:
+    - dexterous
+    - in-hand
+    - in hand
+    - multi-finger
+    - multifinger
+    - anthropomorphic hand
+    - robotic hand
+    - robot hand
+  max_age_days: 4
+
+source:
+  arxiv:
+    category: [cs.RO, cs.LG, cs.CV]
+    include_cross_list: true
+    metadata_only: true
+
+llm:
+  api_mode: ${oc.env:LLM_API_MODE,chat_completion}
+  api:
+    key: ${oc.env:OPENAI_API_KEY,""}
+    base_url: ${oc.env:OPENAI_API_BASE,""}
+  generation_kwargs:
+    model: ${oc.env:LLM_MODEL,""}
+    max_tokens: 6000
+  language: Chinese
+
+analysis:
+  enabled: true
+  max_input_tokens: 24000
+  output_format: json_object # json_schema for supported APIs; prompt for others
+  max_figures: 3
+  pdf_figure_pages: 10
+
+email:
+  sender: ${oc.env:SENDER,""}
+  receiver: ${oc.env:RECEIVER,""}
+  sender_password: ${oc.env:SENDER_PASSWORD,""}
+  smtp_server: ${oc.env:SMTP_HOST,""}
+  smtp_port: ${oc.env:SMTP_PORT,465}
+  security: ${oc.env:SMTP_SECURITY,ssl}
+
+executor:
+  source: [arxiv]
+  reranker: local
+  max_paper_num: null # No daily paper-count cap
+  send_empty: false
+  dry_run: true
+  state_file: outputs/sent.json
+  output_dir: outputs/digests

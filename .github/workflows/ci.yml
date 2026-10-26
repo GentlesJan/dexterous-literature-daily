@@ -2,6 +2,8 @@ name: CI
 on:
   workflow_dispatch:
   push:
+    paths-ignore:
+      - 'site/**'
     branches:
       - main
 

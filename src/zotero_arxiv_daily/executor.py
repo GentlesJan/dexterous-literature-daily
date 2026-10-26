@@ -11,6 +11,8 @@ from .construct_email import render_email
 from .utils import send_email
 from openai import OpenAI
 from tqdm import tqdm
+from .deep_review import analyze, enrich
+from .digest_state import load_sent, mark_sent, select_candidates, save_preview, run_lock
 
 
 def normalize_path_patterns(patterns: list[str] | ListConfig | None, config_key: str) -> list[str] | None:
@@ -91,11 +93,20 @@ class Executor:
 
     
     def run(self):
-        corpus = self.fetch_zotero_corpus()
-        corpus = self.filter_corpus(corpus)
+        with run_lock(self.config.executor.get('state_file')):
+            self._run()
+
+    def _run(self):
+        if self.config.zotero.get('enabled', True):
+            corpus = self.filter_corpus(self.fetch_zotero_corpus())
+        else:
+            profile = self.config.get('research', {}).get('profile', '')
+            if not profile:
+                raise ValueError('A research.profile is required when Zotero is disabled')
+            corpus = [CorpusPaper(title='Research interest profile', abstract=profile,
+                                  added_date=datetime.now(), paths=[])]
         if len(corpus) == 0:
-            logger.error(f"No zotero papers found. Please check your zotero settings:\n{self.config.zotero}")
-            return
+            raise ValueError('No Zotero papers with abstracts found in the selected collections')
         all_papers = []
         for source, retriever in self.retrievers.items():
             logger.info(f"Retrieving {source} papers...")
@@ -106,6 +117,12 @@ class Executor:
             logger.info(f"Retrieved {len(papers)} {source} papers")
             all_papers.extend(papers)
         logger.info(f"Total {len(all_papers)} papers retrieved from all sources")
+        state_file = self.config.executor.get('state_file')
+        if self.config.get('research') or state_file:
+            all_papers = select_candidates(all_papers, self.config.get('research', {}), load_sent(state_file))
+            logger.info('After topic, date and sent-history filtering: {}', len(all_papers))
+        failures = []
+        deep = self.config.get('analysis', {}).get('enabled', False)
         reranked_papers = []
         if len(all_papers) > 0:
             logger.info("Reranking papers...")
@@ -113,12 +130,37 @@ class Executor:
             reranked_papers = reranked_papers[:self.config.executor.max_paper_num]
             logger.info("Generating TLDR and affiliations...")
             for p in tqdm(reranked_papers):
-                p.generate_tldr(self.openai_client, self.config.llm)
-                p.generate_affiliations(self.openai_client, self.config.llm)
+                if deep:
+                    try:
+                        enrich(p, self.config.analysis)
+                        analyze(p, self.openai_client, self.config.llm, self.config.analysis)
+                    except Exception as exc:
+                        logger.error('Review failed for {} ({})', p.url, type(exc).__name__)
+                        failures.append({'url': p.url, 'error_type': type(exc).__name__})
+                        continue
+                else:
+                    p.generate_tldr(self.openai_client, self.config.llm)
+                    p.generate_affiliations(self.openai_client, self.config.llm)
+            if deep:
+                failed_urls = {f['url'] for f in failures}
+                reranked_papers = [p for p in reranked_papers if p.url not in failed_urls]
         elif not self.config.executor.send_empty:
             logger.info("No new papers found. No email will be sent.")
             return
-        logger.info("Sending email...")
         email_content = render_email(reranked_papers)
+        folder = save_preview(self.config.executor.get('output_dir'), reranked_papers, email_content, failures)
+        if folder:
+            logger.info('Preview and JSON saved to {}', folder)
+        if self.config.executor.get('dry_run', False):
+            logger.info('Preview only: no email sent and no sent history changed')
+            if failures:
+                raise RuntimeError('Some reviews failed; see papers.json')
+            return
+        if not reranked_papers and failures:
+            raise RuntimeError('All selected reviews failed; no email sent')
+        logger.info("Sending email...")
         send_email(self.config, email_content)
+        mark_sent(state_file, reranked_papers)
         logger.info("Email sent successfully")
+        if failures:
+            raise RuntimeError('Partial delivery: failed papers were not marked sent; see papers.json')

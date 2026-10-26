@@ -1,0 +1,91 @@
+name: Dexterous hand literature digest
+on:
+  workflow_dispatch:
+    inputs:
+      seed_only:
+        description: Deploy saved reports without new model calls
+        type: boolean
+        default: false
+      send:
+        description: Send Gmail notification after deployment
+        type: boolean
+        default: false
+  schedule:
+    - cron: '0 2 * * *'
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: robotics-digest
+  cancel-in-progress: false
+jobs:
+  digest:
+    if: github.event_name == 'workflow_dispatch' || vars.ROBOTICS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      ZOTERO_ENABLED: 'false'
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+      LLM_MODEL: ${{ vars.LLM_MODEL }}
+      LLM_API_MODE: ${{ vars.LLM_API_MODE || 'response' }}
+      SENDER: ${{ secrets.SENDER }}
+      SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+      RECEIVER: ${{ secrets.RECEIVER }}
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: '465'
+      SMTP_SECURITY: ssl
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - name: Install runtime
+        run: uv sync --locked --no-dev
+      - name: Generate new reports
+        id: generate
+        if: ${{ !inputs.seed_only }}
+        continue-on-error: true
+        run: uv run run_robotics.py executor.state_file=site/sent.json
+      - name: Build website
+        env:
+          SEED_ONLY: ${{ inputs.seed_only }}
+        run: |
+          if [ "$SEED_ONLY" = 'true' ]; then
+            mkdir -p outputs
+            python - <<'PY'
+          import json, datetime
+          from pathlib import Path
+          entries=json.loads(Path('site/archive.json').read_text())
+          Path('outputs/site-run.json').write_text(json.dumps({'date':str(datetime.date.today()),'entry':entries[0] if entries else None,'papers':[]}))
+          PY
+          else
+            uv run python scripts/site_digest.py
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy website
+        id: deploy
+        uses: actions/deploy-pages@v4
+      - name: Notify via Gmail
+        if: github.event_name == 'schedule' || inputs.send
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.page_url }}
+        run: uv run python scripts/site_digest.py --notify
+      - name: Persist published archive and sent history
+        if: always() && steps.deploy.outcome == 'success'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add site
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update literature archive and delivery history'
+            git push
+          fi
+      - name: Report generation failures
+        if: steps.generate.outcome == 'failure'
+        run: exit 1

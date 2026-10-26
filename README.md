@@ -1,3 +1,5 @@
+> 本地灵巧手文献日报改造版：请先阅读 [ROBOTICS.md](ROBOTICS.md)，使用 `run_robotics.py` 运行。默认仅预览，尚未启用自动发送。下方保留上游说明。
+
 <p align="center">
   <a href="" rel="noopener">
  <img width=200px height=200px src="assets/logo.svg" alt="logo"></a>

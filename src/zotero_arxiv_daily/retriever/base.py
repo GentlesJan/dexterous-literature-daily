@@ -33,7 +33,8 @@ class BaseRetriever(ABC):
                 continue
             if paper is not None:
                 papers.append(paper)
-            sleep(1)
+            if not self.retriever_config.get('metadata_only', False):
+                sleep(1)
         return papers
 
 registered_retrievers = {}
