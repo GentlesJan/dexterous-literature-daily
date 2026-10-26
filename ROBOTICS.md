@@ -91,3 +91,6 @@ Actions 使用 cache 保存发送历史，缓存丢失可能重发；更强的�
 新增测试覆盖证据验证、摘要回退、HTML 表格/图像、PDF 图页、截断、日期/主题/版本去重、进程锁、预览与发送状态，以及两种 API 的结构化参数。
 
 接口参考：[OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)。
+
+
+检索方向新增机器人自进化（RSI）：采用“机器人/具身上下文 AND 自我改进、持续学习、在线适应或自主经验采集”等关键词组合，与灵巧手方向取并集。增加 cs.AI 分类。关键词筛选为召回规则，可能包含相关基础方法，不能证明论文实现了递归自我改进。每日仍不限制篇数。

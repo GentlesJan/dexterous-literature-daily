@@ -234,7 +234,7 @@ def render_email(papers:list[Paper], interactive=False) -> str:
         else:
             affiliations = 'Unknown Affiliation'
         if p.analysis:
-            header = f'<div style="background:#142b49;color:white;padding:14px 24px"><div style="font-size:12px;letter-spacing:2px;color:#93c5fd">灵巧手研究 · 文献精读</div><h1 style="font-size:22px;font-weight:600;letter-spacing:-0.3px;line-height:1.4;margin:7px 0">{escape(p.title)}</h1><p style="font-size:12px;color:#cbd5e1;margin:5px 0 0;line-height:1.4">{escape(authors)}</p></div>'
+            header = f'<div style="background:#142b49;color:white;padding:14px 24px"><div style="font-size:12px;letter-spacing:2px;color:#93c5fd">机器人研究 · 文献精读</div><h1 style="font-size:22px;font-weight:600;letter-spacing:-0.3px;line-height:1.4;margin:7px 0">{escape(p.title)}</h1><p style="font-size:12px;color:#cbd5e1;margin:5px 0 0;line-height:1.4">{escape(authors)}</p></div>'
             glance = '<div style="padding:18px 24px 0;background:white;color:#243247;line-height:1.8">' + quick_read(p) + '</div>'
             body = f'<div style="padding:0 24px;background:white"><a href="{safe_url(p.pdf_url or p.url)}">阅读论文 PDF ↗</a></div>' + review_html(p)
             if interactive:

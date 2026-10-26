@@ -13,7 +13,10 @@ research:
   profile: >-
     Robotic dexterous hands for grasping and manipulation, multi-fingered grasp
     synthesis, in-hand manipulation, tactile feedback, reinforcement learning,
-    imitation learning, sim-to-real transfer and real robot evaluations.
+    imitation learning, sim-to-real transfer and real robot evaluations. Also robot
+    self-improvement and recursive self-improvement (RSI), self-evolving robots,
+    autonomous experience collection, continual/lifelong robot learning, online
+    policy adaptation and improvement from real-world interaction.
   keywords:
     - dexterous
     - in-hand
@@ -23,11 +26,42 @@ research:
     - anthropomorphic hand
     - robotic hand
     - robot hand
+  # Independent topic: robot context AND an improvement/learning mechanism.
+  rsi:
+    context: [robot, robots, robotic, robotics, embodied, manipulation, locomotion, humanoid]
+    keywords:
+      - recursive self-improvement
+      - recursive self improvement
+      - self-improvement
+      - self improvement
+      - self-improving
+      - self improving
+      - self-evolving
+      - self evolving
+      - self-evolution
+      - self evolution
+      - continual learning
+      - lifelong learning
+      - online adaptation
+      - online learning
+      - policy adaptation
+      - policy improvement
+      - autonomous learning
+      - autonomous data collection
+      - autonomous exploration
+      - autonomous practice
+      - self-supervised reinforcement learning
+      - learning from experience
+      - real-world experience
+      - learning from interaction
+      - test-time adaptation
+      - self-play
+      - rsi
   max_age_days: 4
 
 source:
   arxiv:
-    category: [cs.RO, cs.LG, cs.CV]
+    category: [cs.RO, cs.LG, cs.CV, cs.AI]
     include_cross_list: true
     metadata_only: true
 

@@ -16,9 +16,23 @@ def paper_key(paper):
     return paper.source + ':' + paper.url
 
 
+def matches_research(text, research):
+    text = re.sub(r"[‐‑–—]", "-", text.lower())
+    def contains(term):
+        term = str(term).lower()
+        return bool(re.search(r'(?<!\w)' + re.escape(term) + r'(?!\w)', text))
+    keywords = research.get('keywords', [])
+    rsi = research.get('rsi', {})
+    if not keywords and not rsi:
+        return True
+    dexterous = any(str(word).lower() in text for word in keywords)
+    self_improvement = (any(contains(word) for word in rsi.get('context', []))
+                        and any(contains(word) for word in rsi.get('keywords', [])))
+    return dexterous or self_improvement
+
+
 def select_candidates(papers, research, seen):
     result, keys = [], set(seen)
-    keywords = research.get('keywords', [])
     max_age = research.get('max_age_days')
     cutoff = datetime.now(timezone.utc) - timedelta(days=float(max_age or 4))
     for paper in papers:
@@ -26,7 +40,7 @@ def select_candidates(papers, research, seen):
         if key in keys:
             continue
         text = (paper.title + ' ' + paper.abstract).lower().replace('–', '-').replace('‑', '-')
-        if keywords and not any(str(word).lower() in text for word in keywords):
+        if not matches_research(text, research):
             continue
         if max_age:
             try:
